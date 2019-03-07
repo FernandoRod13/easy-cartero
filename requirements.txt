@@ -1,1 +1,5 @@
-Flask==0.10.1
+Flask
+Keras
+firebase-admin
+pandas
+numpy
