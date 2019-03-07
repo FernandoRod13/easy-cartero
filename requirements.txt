@@ -1,5 +1,5 @@
 Flask
+Redis
 Keras
-firebase-admin
-pandas
-numpy
+Tensorflow
+Pandas
