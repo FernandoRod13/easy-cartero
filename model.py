@@ -1,13 +1,11 @@
 import keras
 from keras.preprocessing import text, sequence
-from keras import utils
+from keras import utils, regularizers, metrics, optimizers
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
 from sklearn.preprocessing import MultiLabelBinarizer, LabelEncoder
 from sklearn.metrics import confusion_matrix
 from sklearn.feature_extraction.text import CountVectorizer
-from keras import regularizers
-from keras import metrics
 import pandas as pd
 import numpy as np
 import math
@@ -18,10 +16,55 @@ import pandas as pd
 import firebase_admin
 
 class Model:
-
     def __init__(self):
-            pass
+            print("object")
 
+    def sanitize_features(self, df):
+        """
+        This function will replace urls with ' LINK '. It
+        also makes label column to collect all labels into 
+        one column.
+        """
+        df['labels'] = [[] for _ in range(len(df))]
+        for index in range(0, df['body'].size):
+            df['body'][index] = re.sub(r'^https?:\/\/.*[\r\n]*', ' LINK ', df['body'][index].encode('utf-8'), flags=re.MULTILINE).lower()
+            labels = []
+            labels.append(df['audience'][index])
+            labels.append(df['emailType'][index])
+            labels.append(df['majors'][index])
+            labels.append(df['language'][index])
+            df['labels'][index] = labels
+        return df
+
+    def build_model(self, l1_reg, l2_reg, learning_rate, vocabulary_size, num_classes):
+        """
+        This function defines the architecture of the model.
+        """
+        model = Sequential([
+            Dense(2048, input_shape = (vocabulary_size,), activation = 'relu', kernel_regularizer=regularizers.l2(l2_reg), activity_regularizer=regularizers.l1(l1_reg)),
+            Dense(1024, activation = 'relu', kernel_regularizer=regularizers.l2(l2_reg), activity_regularizer=regularizers.l1(l1_reg)),
+            Dense(num_classes, activation='sigmoid')
+        ])
+        model.compile(optimizer = optimizers.Adam(lr = learning_rate),
+                    loss ='binary_crossentropy',
+                    metrics = [metrics.binary_accuracy])
+        return model
+
+    def train_model_fit(self, model, tokenized_emails_train, encoded_label_training, tokenized_emails_validation, encoded__label_validation, batch_size = 150, steps = 100, epochs = 5, verbose = 1, validation_split = 0.5):
+        """
+        This function will train and evaluate the model this function also returns the trained model.
+        """
+        train = model.fit(tokenized_emails_train, encoded_label_training,
+                        batch_size= batch_size, 
+                        epochs= epochs, 
+                        verbose= verbose,
+                        validation_split= validation_split)
+        evaluation = model.evaluate(tokenized_emails_validation,
+                                encoded__label_validation, 
+                                batch_size= batch_size, 
+                                verbose= verbose)
+        return train
+    
     def train_model(self):
         """
         This is the function that hanldes retraining of the model.
@@ -41,7 +84,7 @@ class Model:
         for index in range(0,163):
             df['audience'][index] = ['Everyone']
 
-        sanitize_features(df)
+        df = self.sanitize_features(df)
         df.drop(columns=['audience','author', 'date', 'emailType', 'key', 'language', 'majors', 'subject'])
         possible_labels = ['Internship or Job Application','Scholarships & Fellowship','Volunteer','Sports & Fitness','Workshop','Class',
                         'Competition','Conference','Social Events','Sale','Research','Health & Security','Student Associations',
@@ -86,7 +129,7 @@ class Model:
         LEARNING_RATE = 0.001
         Positive_Label_Threshold = 0.5
 
-        model = build_model(
+        model = self.build_model(
             l1_reg = L1_regularization,
             l2_reg = L2_regularization, 
             learning_rate = LEARNING_RATE,
@@ -94,7 +137,7 @@ class Model:
             num_classes = num_classes
         )
 
-        history = train_model(
+        history = self.train_model_fit(
             model = model,
             tokenized_emails_train = tokenized_emails_train,
             encoded_label_training = encoded_training,
@@ -107,52 +150,6 @@ class Model:
             validation_split = validation_split
         )
 
-
-
-    def sanitize_features(self, df):
-        """
-        This function will replace urls with ' LINK '. It
-        also makes label column to collect all labels into 
-        one column.
-        """
-        df['labels'] = [[] for _ in range(len(df))]
-        for index in range(0, df['body'].size):
-            df['body'][index] = re.sub(r'^https?:\/\/.*[\r\n]*', ' LINK ', str(df['body'][index]), flags=re.MULTILINE).lower()
-            labels = []
-            labels.extend(df['audience'][index])
-            labels.extend(df['emailType'][index])
-            labels.extend(df['majors'][index])
-            labels.append(df['language'][index])
-            df['labels'][index] = labels
-
-    def build_model(self, l1_reg, l2_reg, learning_rate, vocabulary_size, num_classes):
-        """
-        This function defines the architecture of the model.
-        """
-        model = Sequential([
-            Dense(2048, input_shape = (vocabulary_size,), activation = 'relu', kernel_regularizer=regularizers.l2(l2_reg), activity_regularizer=regularizers.l1(l1_reg)),
-            Dense(1024, activation = 'relu', kernel_regularizer=regularizers.l2(l2_reg), activity_regularizer=regularizers.l1(l1_reg)),
-            Dense(num_classes, activation='sigmoid')
-        ])
-        model.compile(optimizer = tf.train.AdamOptimizer(learning_rate),
-                    loss ='binary_crossentropy',
-                    metrics = [metrics.binary_accuracy])
-        return model
-
-    def train_model(self, model, tokenized_emails_train, encoded_label_training, tokenized_emails_validation, encoded__label_validation, batch_size = 150, steps = 100, epochs = 5, verbose = 1, validation_split = 0.5):
-        """
-        This function will train and evaluate the model this function also returns the trained model.
-        """
-        train = model.fit(tokenized_emails_train, encoded_label_training,
-                        batch_size= batch_size, 
-                        epochs= epochs, 
-                        verbose= verbose,
-                        validation_split= validation_split)
-        evaluation = model.evaluate(tokenized_emails_validation,
-                                encoded__label_validation, 
-                                batch_size= batch_size, 
-                                verbose= verbose)
-        return train
 
     def extract_labels_from_prediction(self, possible_labels, prediction, threshold):
         labels = []
