@@ -3,3 +3,6 @@ Redis
 Keras
 Tensorflow
 Pandas
+scikit-learn
+firebase_admin
+numpy

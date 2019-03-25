@@ -1,3 +1,4 @@
+import keras
 from keras.preprocessing import text, sequence
 from keras import utils
 from keras.models import Sequential
@@ -14,8 +15,6 @@ import re
 import json
 from firebase_admin import db, credentials
 import pandas as pd
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import firebase_admin
 
 class Model:
@@ -159,7 +158,7 @@ class Model:
         labels = []
         for index in range(0, len(possible_labels)):
             if(prediction[index] >= threshold):
-            labels.append(possible_labels[index])
+                labels.append(possible_labels[index])
         return labels
 
     def predict(self):
